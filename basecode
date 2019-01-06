@@ -1,0 +1,448 @@
+function twos()
+
+    clc
+
+    n = mainmenuprint();
+    %Print main menu to ask user what to do
+    
+    switch n
+        case 1
+            %Play new game 
+            [m,n] = DimAsk();
+            game(zeros(m,n))
+        case 2
+            %Play game loaded from file
+            f = dbread();
+            if f == -1
+                twos()
+                return
+            else
+                game(f)
+            end
+        case 0
+            %Quit
+            clc
+            clear
+            return
+    end
+
+end
+
+function c = mainmenuprint()
+%This function displays the homescreen
+%and asks the user what they want to do
+
+    while 1
+        clc
+
+% Bask in the glory of my ASCII art skills. 
+% Jk. Generated at http://bigtext.org/
+
+        fprintf('\n ____   ___  _  _    ___  ')
+        fprintf('\n|___ \\ / _ \\| || |  ( _ ) ')
+        fprintf('\n  __) | | | | || |_ / _ \\ ')
+        fprintf('\n / __/| |_| |__   _| (_) |')
+        fprintf('\n|_____|\\___/   |_|  \\___/ ')
+
+        fprintf('\n\n-----Welcome to 2048!-----')
+
+        fprintf('\n\n1. New game')
+        fprintf('\n2. Load game from file')
+        fprintf('\n0. Quit')
+
+    %Takes user input. (It is taken as a string to make sure
+    %invalid inputs (like letters) can be ignored)
+
+        c = str2double(input('\n\nMake a choice(0, 1 or 2) and press Enter : ','s'));
+
+        if ~ismember(c,0:2)
+            continue
+        end
+
+        break
+
+    end
+    
+end
+
+function [m,n] = DimAsk()
+%Asks the user the dimensions of the grid they want to play with. 
+
+    while 1
+        clc
+
+        m = str2num(input('\nHow many rows should the grid have(4 or more)? ','s'));
+        n = str2num(input('\nHow many columns should the grid have(4 or more)? ','s'));
+        
+        if isempty(m) || isempty (n)
+            continue
+        else
+            m = m(end);
+            n = n(end);
+        end
+        
+        if m-round(m)==0 && n-round(n)==0 && m>3 && n>3
+            break
+        end
+    end
+
+
+end
+
+function game(board)
+%This function is the backbone of the game
+
+    [m,n] = size(board);
+
+%If the board has less than two full spaces for
+%any reason, it assigns either a 2 or a 4 to two 
+%random spaces on the board
+
+    if  sum(sum(board ~= 0))<2;
+        a = [randperm(m,2)',randperm(n,2)'];
+        b = 2.*randi(2,2,1);
+        a(:,3) = b;
+        board(a(1,1),a(1,2)) = a(1,3);
+        board(a(2,1),a(2,2)) = a(2,3);
+    end
+    
+    clc
+    %Prints the board
+    printboard(board)
+    %Prints the menu
+    c = printmenu();
+    
+    %A variable that may or may not be useful.
+    %It was useful in earlier versions but I am too
+    %afraid to take it away now.
+    d = 'n';
+
+    %While the board has empty spaces, or is deemed 
+    %playable by my lovely poss() function.
+    while sum(sum(board ==0))>0 || poss(board)
+        
+        if strfind('wasd',c)
+            %If the input was a direction, move the
+            %move the board pieces in that direction
+            [board,d] = movenew(board,c);
+        elseif c == 'l'
+            %Save the current board to a file and
+            %return to the main menu
+            b = dbwrite(board);
+            if b == 0
+                twos()
+                return
+            end
+        elseif c == 'p'
+            %Return to the main menu
+            twos()
+            return
+        else
+            %If the user enters nothing, ask the
+            %user for an input again and restart
+            %the loop
+            clc
+            printboard(board)
+            c = printmenu();
+            continue
+        end
+        
+        %This was useful in earlier versions. Now I'm
+        %afraid it'll break the code if I remove it,
+        %so it stays.
+        if d ~= 'n'
+            c = d;
+            continue
+        end
+        
+        clc
+       
+        printboard(board)
+        c= printmenu();
+    end
+    
+    %When the while loop is over, the user is informed
+    %that the game is over and is returned to the main
+    %menu.
+    fprintf('\n Game Over. :(\n')
+    pause(3)
+    twos()
+    return
+end
+
+function [board, d] = movenew(board,k)
+    %Moves the board pieces in the desired direction.
+
+    %I only explained the case where the option is to move
+    %downwards (k == 's') because the rest are the same but with different
+    %variables changing.
+    [m,n] = size(board);
+    
+    
+    %Makes a single-layer padding of NaN-variables 
+    %around the board.
+    d = 'n';
+    first = board;
+    g = NaN(m+2,n+2);
+    g(2:m+1,2:n+1) = board;
+    board = g;
+
+    if k == 's'
+        %down
+        for r = m:-1:2
+            %Starts on the second last row and works upwards.
+            %Looks at all columns
+            for c = 2:n+1
+                %if the piece is non-zero
+                if board(r,c) ~= 0
+                    p = r;
+                    %while the piece below it is zero or the same
+                    while board(r+1,c) == 0 || board(r,c) == board(r+1,c)
+                        if board(r,c) == board(r+1,c)
+                            %If the piece is the same as the one below it,
+                            %nullify itself and double the piece below it
+                            %and break the loop.
+                            board(r+1,c) = board(r,c).*2;
+                            board(r,c) = 0;
+                            break
+                        elseif board(r+1,c) == 0
+                            %if the piece below it is empty
+                            %while the piece below it is empty,
+                            %Move the piece to the space below it
+                            board(r+1,c) = board(r,c);
+                            board(r,c) = 0;
+                            r = r+1;
+                        end
+                    end
+                    r = p;
+                end
+            end
+        end
+
+    elseif k == 'a'
+        %left
+        for r = 2:m+1
+            for c = 3:n+1
+                if board(r,c) ~= 0
+                    p = c;
+                    while board(r,c-1) == 0 || board(r,c) == board(r,c-1)
+                        if board(r,c) == board(r,c-1)
+                            board(r,c-1) = board(r,c).*2;
+                            board(r,c) = 0;
+                            break
+                        elseif board(r,c-1) == 0
+                            board(r,c-1) = board(r,c);
+                            board(r,c) = 0;
+                            c = c-1;
+                        end
+                    end
+                    c = p;
+                end
+            end
+        end
+
+    elseif k == 'd'
+        %right
+        for r = 2:m+1
+            for c = n:-1:2
+                if board(r,c) ~= 0
+                    p = c;
+                    while board(r,c+1) == 0 || board(r,c) == board(r,c+1)
+                        if board(r,c) == board(r,c+1)
+                            board(r,c+1) = board(r,c).*2;
+                            board(r,c) = 0;
+                            break
+                        elseif board(r,c+1) == 0
+                            board(r,c+1) = board(r,c);
+                            board(r,c) = 0;
+                            c = c+1;
+                        end
+                    end
+                    c = p;
+                end
+            end
+        end
+
+    elseif k == 'w'
+        %up
+        for r = 3:m+1
+            for c = 2:n+1
+                if board(r,c) ~= 0
+                    p = r;
+                    while board(r-1,c) == 0 || board(r,c) == board(r-1,c)
+                        if board(r,c) == board(r-1,c)
+                            board(r-1,c) = board(r,c).*2;
+                            board(r,c) = 0;
+                            break
+                        elseif board(r-1,c) == 0
+                            board(r-1,c) = board(r,c);
+                            board(r,c) = 0;
+                            r = r-1;
+                        end
+                    end
+                    r = p;
+                end
+            end
+        end
+    end
+
+    %removes the padding of NaNs
+    board = board(2:m+1,2:n+1);
+
+    %If the board is not unchanged after the move,
+    % a 2 or a 4 is added to a random empty
+    %spot on the board.
+    if ~isequal(board,first)
+        [x,y] = find(board==0);
+        b = 2.*randi(2);
+        c = randi(length(x));
+        board(x(c),y(c)) = b;
+    end
+
+end
+
+function res = poss(board)
+
+    [m,n] = size(board); 
+    %Checks if the board is still playable even if the
+    %board is full
+
+    res = 0;
+
+    %Makes a single-layer padding of NaN-variables
+    %around the board.
+    z = NaN(m+2,n+2);
+    z(2:m+1,2:n+1) = board;
+
+
+    %If any of the board pieces has an equal and
+    %adjacent board piece, this function returns 1.
+    for r = 2:m+1
+        for c = 2:n+1
+            if z(r,c) ~= 0
+                if any([z(r-1,c),z(r+1,c),z(r,c+1),z(r,c-1)]==z(r,c));
+                    res = 1;
+                    return
+                end
+            end
+        end
+    end
+end
+
+function printboard(board)
+
+    [m,n] = size(board);
+%Prints a board of any size. I'm very proud of this.
+
+    fprintf('\n+----+')
+    for i = 1:n-1
+        fprintf('----+')
+    end
+
+    for i =1:m
+        fprintf('\n|')
+        for j = 1:n
+            if board(i,j) == 0
+                fprintf('%4s|',' ')
+            else
+                fprintf('%4d|',board(i,j))
+            end
+        end
+        
+        fprintf('\n+----+')
+        
+        for k = 1:n-1
+            fprintf('----+')
+        end
+        
+    end
+    
+    fprintf('\n')
+    
+end
+
+function res = printmenu()
+%Prints the in-game menu.
+
+    fprintf('\n"w/a/s/d" to move')
+    fprintf('\n"l" to save to file')
+    fprintf('\n"p" to quit to main menu')
+    
+    res = input('\n\nMake your choice and press Enter: ','s');
+    
+    
+    %The output is the last character in 
+    %the input string. I found that while
+    %playing fast, I typed in
+    %two or more characters at once, so this 
+    %tries to fix that.
+    
+    if ~isempty(res)
+        res = res(end);
+    end
+    
+end
+
+function b = dbread()
+%Reads and returns the contents of a
+%user-determined file.
+
+    clc
+
+    s = input('\nEnter file name to read from: ', 's');
+    
+    fid = fopen(s,'r');
+    
+    if fid == -1
+        b = fid;
+        fprintf('\nFile could not be accessed. Returning to main menu')
+        pause(1)
+        pause(0.7)
+        fprintf('.')
+        pause(0.7)
+        fprintf('.')
+        pause(0.7)
+        fprintf('.')
+        pause(0.7)
+    else
+        i = 1;
+        while ~feof(fid)
+            b(i,:) = str2num(fgetl(fid));
+            i = i+1;
+        end
+        fclose(fid);
+    end
+    
+
+
+end
+
+function b = dbwrite(board)
+%Writes the board to a user-determined file
+
+    clc
+        
+    [m,n] = size(board);
+
+    s = input('\nEnter file name to save in: ', 's');
+    fid = fopen(s, 'w');
+    
+    if fid == -1
+        b = fid;
+        fprintf('\nFile could not be accessed.')
+        pause(2)
+    else
+        b=0;
+        
+        for i =1:m
+            for j = 1:n
+                fprintf(fid,'%d ',board(i,j));
+            end
+            fprintf(fid,'\n');            
+        end
+        
+    end
+    
+    fclose(fid);
+
+end
